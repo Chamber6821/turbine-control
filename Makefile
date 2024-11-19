@@ -6,3 +6,6 @@ upload: ./turbine-control.ino
 	arduino-cli compile --fqbn $(FQBN)
 	arduino-cli upload -p $(PORT) --fqbn $(FQBN)
 
+listen:
+	cat $(PORT)
+
