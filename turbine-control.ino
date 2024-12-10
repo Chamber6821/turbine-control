@@ -1,4 +1,5 @@
 #include <LiquidCrystal_I2C.h> // LCD library for I2C
+#include <limits.h>
 
 class Lcd {
 public:
@@ -135,6 +136,10 @@ public:
     device.select(); // Select device
     device.write(state); // Update state
     device.unselect(); // Unselect device
+    Serial.print(state, BIN);
+    Serial.print(" - on ");
+    Serial.print(index);
+    Serial.print("\n");
   }
 
   void off() const override { // Turn LED off
@@ -142,6 +147,10 @@ public:
     device.select(); // Select device
     device.write(state); // Update state
     device.unselect(); // Unselect device
+    Serial.print(state, BIN);
+    Serial.print(" - off ");
+    Serial.print(index);
+    Serial.print("\n");
   }
 };
 
@@ -172,6 +181,12 @@ public:
       : led(led), _min(min), _max(max) {} // Init
 
   void update(int value) const { // Update LED state
+    Serial.print(_min);
+    Serial.print(" <= ");
+    Serial.print(value);
+    Serial.print(" <= ");
+    Serial.print(_max);
+    Serial.print("\n");
     if (_min <= value && value <= _max) 
       led.on(); // Turn on LED
     else 
@@ -225,7 +240,7 @@ public:
   int update() const override { // Update method
     auto lcdPlace = lcd.lcd(); // Get LCD reference
     lcdPlace.print(rpm); // Print RPM
-    lcdPlace.print("C"); // Print degree
+    lcdPlace.print("RPM"); // Print degree
     red.update(rpm); // Update red indicator
     green.update(rpm); // Update green indicator
     return rpm; // Return RPM
@@ -264,6 +279,8 @@ public:
 int main() { // Main function
   init(); // Initialize system
 
+  Serial.begin(9600);
+
   LiquidCrystal_I2C lcd(0x27, 16, 2); // Create LCD instance
   lcd.init(); // Init the LCD
   lcd.backlight(); // Turn on backlight
@@ -284,7 +301,7 @@ int main() { // Main function
   auto tsLcd = LcdWithPrefix{tsLcdSlice, "TS:"}; // TS disp
   auto lsLcd = LcdWithPrefix{lsLcdSlice, "TOS:"};// TOS disp
 
-  auto root = RootDevice{9, 10, 11}; // Create root device
+  auto root = RootDevice{12, 13, 11}; // Create root device
   // Create SPI devices from hub
   auto dev0 = SpiDeviceFromHub{0, root};
   auto dev1 = SpiDeviceFromHub{1, root};
@@ -294,10 +311,10 @@ int main() { // Main function
   auto leds = LedPanel{dev3}; // Create LED panel
 
   // Initialize thermocouple indicators
-  auto tfRed = leds.led(0); // Red LED for TF
-  auto tfGreen = leds.led(1); // Green LED for TF
+  auto tfRed = leds.led(7); // Red LED for TF
+  auto tfGreen = leds.led(0); // Green LED for TF
   auto tfRedIndicator = IndicatorLed{tfRed, 0, 200};
-  auto tfGreenIndicator = IndicatorLed{tfRed, 200, 700};
+  auto tfGreenIndicator = IndicatorLed{tfGreen, 201, 700};
 
   // Create thermocouple for fire
   auto termocoupleFire = Termocouple{
@@ -305,10 +322,10 @@ int main() { // Main function
   };
 
   // Initialize water thermocouple indicators
-  auto twRed = leds.led(2); // Red LED for TW
-  auto twGreen = leds.led(3); // Green LED for TW
-  auto twRedIndicator = IndicatorLed{twRed, 110, 200};
-  auto twGreenIndicator = IndicatorLed{twRed, 90, 110};
+  auto twRed = leds.led(6); // Red LED for TW
+  auto twGreen = leds.led(1); // Green LED for TW
+  auto twRedIndicator = IndicatorLed{twRed, 111, 200};
+  auto twGreenIndicator = IndicatorLed{twGreen, 0, 110};
 
   // Create thermocouple for water
   auto termocoupleWater = Termocouple{
@@ -316,10 +333,10 @@ int main() { // Main function
   };
 
   // Initialize steam thermocouple indicators
-  auto tsRed = leds.led(4); // Red LED for TS
-  auto tsGreen = leds.led(5); // Green LED for TS
+  auto tsRed = leds.led(5); // Red LED for TS
+  auto tsGreen = leds.led(2); // Green LED for TS
   auto tsRedIndicator = IndicatorLed{tsRed, 0, 110};
-  auto tsGreenIndicator = IndicatorLed{tsGreen, 110, 300};
+  auto tsGreenIndicator = IndicatorLed{tsGreen, 111, 300};
 
   // Create thermocouple for steam
   auto termocoupleSteam = Termocouple{
@@ -327,10 +344,10 @@ int main() { // Main function
   };
 
   // Initialize tachometer indicators
-  auto lsRed = leds.led(6); // Red LED for tachometer
-  auto lsGreen = leds.led(7); // Green LED for tachometer
-  auto lsRedIndicator = IndicatorLed{lsRed, 0, 1000};
-  auto lsGreenIndicator = IndicatorLed{lsGreen, 1000, 1500};
+  auto lsRed = leds.led(4); // Red LED for tachometer
+  auto lsGreen = leds.led(3); // Green LED for tachometer
+  auto lsRedIndicator = IndicatorLed{lsRed, INT_MIN, 1000};
+  auto lsGreenIndicator = IndicatorLed{lsGreen, 1001, 1500};
 
   // Create tachometer
   auto tachometer = Tachometer{
@@ -349,6 +366,8 @@ int main() { // Main function
     delay(2000 - tachometer.measure(2000)); 
     lcd.clear(); // Clear the LCD
     mdLcd.lcd().print("PAGE2"); // Display page indicator
+    Serial.print("Start calc\n");
     tachometer.update(); // Update tachometer display
+    Serial.print("End calc\n");
   }
 }
