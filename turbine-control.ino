@@ -234,13 +234,17 @@ public:
   Tachometer(int pin, Lcd &lcd, IndicatorLed &red,
     IndicatorLed &green)
       : pin(pin), lcd(lcd), red(red), green(green) { // Init
-    pinMode(pin, OUTPUT); // Set pin as output
+    pinMode(pin, INPUT); // Set pin as output
   }
 
   int update() const override { // Update method
     auto lcdPlace = lcd.lcd(); // Get LCD reference
-    lcdPlace.print(rpm); // Print RPM
-    lcdPlace.print("RPM"); // Print degree
+    if (rpm < 0) {
+      lcdPlace.print("Error!");
+    } else {
+      lcdPlace.print(rpm); // Print RPM
+      lcdPlace.print("RPM"); // Print degree
+    }
     red.update(rpm); // Update red indicator
     green.update(rpm); // Update green indicator
     return rpm; // Return RPM
@@ -271,8 +275,35 @@ public:
       } 
     auto change2 = millis(); // Second change time
     auto period = change2 - change1; // Calculate period
-    rpm = 60 * 1000 / period; // Calculate RPM
+    rpm = 1000 / period * 60; // Calculate RPM
     return millis() - start; // Return elapsed time
+  }
+
+  unsigned long superMeasure(unsigned long timeout = 100) {
+    long ms[5] = {0};
+    unsigned long del = 0;
+    for (auto &el : ms) {
+      Serial.print("MEASURE!\n");
+      del += measure(timeout);
+      el = rpm;
+      Serial.print("RPM: ");
+      Serial.print(el);
+      Serial.print("\n");
+    }
+    long acc = 0;
+    int vals = 0;
+    Serial.print("SUM!\n");
+    for (auto el : ms) {
+      if (el >= 0) {
+        acc += el;
+        vals++;
+      }
+    }
+    Serial.print("CALC!\n");
+    if (vals == 0) rpm = -1;
+    else rpm = acc / vals;
+    Serial.print("RETURN!\n");
+    return del;
   }
 };
 
@@ -347,12 +378,22 @@ int main() { // Main function
   auto lsRed = leds.led(4); // Red LED for tachometer
   auto lsGreen = leds.led(3); // Green LED for tachometer
   auto lsRedIndicator = IndicatorLed{lsRed, INT_MIN, 1000};
-  auto lsGreenIndicator = IndicatorLed{lsGreen, 1001, 1500};
+  auto lsGreenIndicator = IndicatorLed{lsGreen, 1001, INT_MAX};
 
   // Create tachometer
   auto tachometer = Tachometer{
-    8, lsLcd, lsRedIndicator, lsGreenIndicator
+    A2, lsLcd, lsRedIndicator, lsGreenIndicator
   };
+
+
+  for (int i = 0; i < 8; i++) {
+    leds.led(i).on();
+    delay(100);
+  }
+  for (int i = 0; i < 8; i++) {
+    leds.led(i).off();
+    delay(100);
+  }
 
   while (true) { // Infinite loop for updates
     delay(2000); // Wait for 2 seconds
@@ -363,7 +404,11 @@ int main() { // Main function
     termocoupleSteam.update(); // Update steam thermocouple
 
     // Wait delay between pages
-    delay(2000 - tachometer.measure(2000)); 
+    long measureDelay = tachometer.superMeasure(500);
+    Serial.print("Delay ");
+    Serial.print(max(1, 2000 - measureDelay));
+    Serial.print("ms\n");
+    delay(max(1, 2000 - measureDelay)); 
     lcd.clear(); // Clear the LCD
     mdLcd.lcd().print("PAGE2"); // Display page indicator
     Serial.print("Start calc\n");
